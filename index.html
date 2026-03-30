@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>تجربة ثلاثية الأبعاد متكاملة - مع أصوات تعمل</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- Three.js CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+            }
+        }
+    </script>
+    
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(2deg); }
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.8); }
+        }
+        
+        @keyframes slide-in {
+            from { opacity: 0; transform: translateX(-50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes particle-burst {
+            0% { opacity: 1; transform: scale(1) translate(0, 0); }
+            100% { opacity: 0; transform: scale(0) translate(var(--tx, 0), var(--ty, 0)); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+        .animate-slide-in { animation: slide-in 0.6s ease-out forwards; }
+        .shake-effect { animation: shake 0.3s ease-in-out; }
+        
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .card-hover {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        .content { position: relative; z-index: 10; }
+        
+        .music-control {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .music-control button {
+            background: linear-gradient(135deg, #8b5cf6, #ec489a);
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 22px;
+            transition: transform 0.3s;
+        }
+        
+        .music-control button:hover { transform: scale(1.1); }
+        
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            font-size: 28px;
+            animation: particle-burst 0.8s ease-out forwards;
+        }
+        
+        .camera-control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            padding: 10px 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .camera-control button {
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            transition: transform 0.3s;
+        }
+        
+        .camera-control button:hover { transform: scale(1.1); }
+        
+        .volume-control {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .volume-control input { width: 100px; cursor: pointer; }
+        
+        .enable-sound-btn {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: linear-gradient(135deg, #8b5cf6, #ec489a);
+            padding: 20px 40px;
+            border-radius: 60px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 0 50px rgba(139, 92, 246, 0.8);
+            animation: pulse-glow 1s infinite;
+            border: none;
+            white-space: nowrap;
+        }
+        
+        @media (max-width: 600px) {
+            .enable-sound-btn { font-size: 18px; padding: 15px 30px; white-space: normal; width: 80%; text-align: center; }
+            .music-control, .camera-control, .volume-control { transform: scale(0.85); }
+        }
+    </style>
+</head>
+<body class="bg-black overflow-x-hidden">
+    
+    <div id="canvas-container"></div>
+    
+    <!-- زر تمكين الصوت (يظهر أول مرة فقط) -->
+    <div id="enableSoundOverlay" class="enable-sound-btn" onclick="enableSoundAndStart()">
+        🔊 اضغط هنا لتمكين الأصوات والموسيقى 🔊
+    </div>
+    
+    <div class="music-control" style="opacity: 0.5;">
+        <button id="playMusicBtn">🔇</button>
+        <div class="text-white text-sm">🎵 قيد الانتظار</div>
+    </div>
+    
+    <div class="volume-control" style="opacity: 0.5;">
+        <span class="text-white">🔊</span>
+        <input type="range" id="volumeSlider" min="0" max="100" value="50" disabled>
+        <span class="text-white text-xs">50%</span>
+    </div>
+    
+    <div class="camera-control">
+        <button id="resetCameraBtn">🔄</button>
+        <button id="autoRotateBtn">🎬</button>
+        <div class="text-white text-xs" id="rotateStatus">يدوي</div>
+    </div>
+    
+    <div id="app" class="content">
+        <div class="relative min-h-screen">
+            <div class="text-center pt-20 pb-12 px-4">
+                <div class="animate-float">
+                    <h1 class="text-5xl md:text-7xl font-bold bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                        ✨ التجربة المتكاملة ✨
+                    </h1>
+                    <div class="h-1 w-32 bg-gradient-to-r from-cyan-400 to-pink-500 mx-auto mt-4 rounded-full animate-pulse-glow"></div>
+                </div>
+                <p class="text-gray-300 mt-6 text-lg md:text-xl max-w-2xl mx-auto animate-slide-in">
+                    5 إضافات احترافية | موسيقى + مؤثرات صوتية + نماذج 3D + تحكم كاميرا + جسيمات
+                </p>
+            </div>
+            
+            <div class="container mx-auto px-4 py-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+                    <div v-for="(card, index) in cards" :key="index" @click="handleClick(card, $event)" class="glass-morphism rounded-2xl p-6 cursor-pointer card-hover animate-slide-in" :style="{ animationDelay: index * 100 + 'ms' }">
+                        <div class="text-6xl mb-4">{{ card.icon }}</div>
+                        <h3 class="text-2xl font-bold text-white mb-3">{{ card.title }}</h3>
+                        <p class="text-gray-300 text-sm">{{ card.description }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="container mx-auto px-4 py-16">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+                    <div v-for="(stat, index) in stats" :key="index" class="glass-morphism rounded-2xl p-8 text-center transform transition-all duration-500 hover:scale-110">
+                        <div class="text-5xl mb-3">{{ stat.icon }}</div>
+                        <div class="text-3xl font-bold text-white mb-2">{{ stat.value }}</div>
+                        <div class="text-gray-400">{{ stat.label }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center pb-20">
+                <button @click="showParticlesEffect" class="relative group bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 md:px-12 py-4 rounded-full font-bold text-lg md:text-xl transition-all duration-300 hover:scale-110 hover:shadow-2xl overflow-hidden">
+                    <span class="relative z-10">🎨 انقر للتجربة 🎨</span>
+                </button>
+                <div class="mt-8 text-xl md:text-2xl text-white">
+                    <span class="text-purple-400 font-bold">{{ clickCount }}</span> تفاعل حتى الآن
+                </div>
+            </div>
+            
+            <div v-if="showMessage" class="fixed bottom-8 right-8 glass-morphism text-white px-6 md:px-8 py-4 rounded-2xl shadow-2xl transition-all duration-500 animate-slide-in cursor-pointer z-50" @click="showMessage = false">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl md:text-3xl">{{ messageIcon }}</span>
+                    <div>
+                        <p class="font-bold text-sm md:text-base">{{ messageTitle }}</p>
+                        <p class="text-xs md:text-sm text-gray-300">{{ messageText }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import * as THREE from 'three';
+        
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 0);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 2500;
+        const posArray = new Float32Array(particlesCount * 3);
+        for(let i = 0; i < particlesCount * 3; i += 3) {
+            posArray[i] = (Math.random() - 0.5) * 200;
+            posArray[i+1] = (Math.random() - 0.5) * 100;
+            posArray[i+2] = (Math.random() - 0.5) * 50;
+        }
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({ size: 0.2, color: 0x8b5cf6, transparent: true, blending: THREE.AdditiveBlending });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+        
+        const sphereGeometry = new THREE.SphereGeometry(1.5, 32, 32);
+        const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x8b5cf6, emissive: 0x4c1d95, shininess: 100, transparent: true, opacity: 0.6 });
+        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        scene.add(sphere);
+        
+        const ringGeometry = new THREE.TorusGeometry(2, 0.1, 32, 100);
+        const ringMaterial = new THREE.MeshPhongMaterial({ color: 0xec489a, emissive: 0x831843 });
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        scene.add(ring);
+        
+        const ring2Geometry = new THREE.TorusGeometry(2.5, 0.08, 32, 100);
+        const ring2Material = new THREE.MeshPhongMaterial({ color: 0x06b6d4, emissive: 0x155e75 });
+        const ring2 = new THREE.Mesh(ring2Geometry, ring2Material);
+        scene.add(ring2);
+        
+        const starGeometry = new THREE.IcosahedronGeometry(0.8, 0);
+        const starMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xff6600, emissiveIntensity: 0.5 });
+        const starModel = new THREE.Mesh(starGeometry, starMaterial);
+        starModel.position.set(2, 1.5, -2);
+        scene.add(starModel);
+        
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 10, 7);
+        scene.add(directionalLight);
+        const pointLight = new THREE.PointLight(0x8b5cf6, 1);
+        pointLight.position.set(2, 3, 4);
+        scene.add(pointLight);
+        
+        let autoRotateCamera = false;
+        let cameraAngle = 0;
+        camera.position.z = 8;
+        camera.position.y = 2;
+        
+        let time = 0;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+            particlesMesh.rotation.y = time * 0.05;
+            particlesMesh.rotation.x = time * 0.03;
+            sphere.position.x = Math.sin(time) * 0.5;
+            sphere.position.y = Math.cos(time * 0.7) * 0.3;
+            ring.rotation.x = time * 0.5;
+            ring.rotation.z = time * 0.3;
+            ring2.rotation.y = time * 0.8;
+            ring2.rotation.x = time * 0.4;
+            starModel.rotation.y = time;
+            starModel.rotation.x = time * 0.5;
+            const hue = (time * 0.1) % 1;
+            particlesMaterial.color.setHSL(hue, 0.8, 0.6);
+            
+            if (autoRotateCamera) {
+                cameraAngle += 0.005;
+                camera.position.x = Math.sin(cameraAngle) * 3;
+                camera.position.z = 8 + Math.cos(cameraAngle * 0.5) * 1;
+                camera.lookAt(0, 0, 0);
+            } else {
+                camera.position.x += (0 - camera.position.x) * 0.05;
+                camera.lookAt(0, 0, 0);
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // ============== إدارة الصوت (الحل النهائي) ==============
+        let audioContext = null;
+        let isSoundEnabled = false;
+        let currentVolume = 0.5;
+        
+        function playBeep(frequency = 800, duration = 0.2, volume = 0.15) {
+            if (!isSoundEnabled || !audioContext) return;
+            try {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = frequency;
+                gainNode.gain.value = volume * currentVolume;
+                oscillator.start();
+                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + duration);
+                oscillator.stop(audioContext.currentTime + duration);
+            } catch(e) { console.log("Sound error:", e); }
+        }
+        
+        function playClickSound() { playBeep(800, 0.15, 0.12); }
+        function playSuccessSound() { playBeep(1200, 0.2, 0.15); }
+        function playMagicSound() { playBeep(600, 0.25, 0.1); playBeep(1000, 0.2, 0.1); }
+        
+        window.enableSoundAndStart = function() {
+            if (isSoundEnabled) return;
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioContext.resume();
+                isSoundEnabled = true;
+                
+                document.getElementById('enableSoundOverlay').style.display = 'none';
+                document.querySelector('.music-control').style.opacity = '1';
+                document.querySelector('.volume-control').style.opacity = '1';
+                document.querySelector('.music-control button').innerHTML = '🔊';
+                document.querySelector('.music-control .text-white').innerHTML = '🎵 جاهز';
+                document.querySelector('.volume-control input').disabled = false;
+                
+                playSuccessSound();
+                
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-purple-600 text-white px-6 py-3 rounded-full z-50 text-lg animate-pulse-glow';
+                msgDiv.innerHTML = '✅ الصوت مفعل الآن! اضغط على أي زر لتجربة المؤثرات';
+                document.body.appendChild(msgDiv);
+                setTimeout(() => msgDiv.remove(), 2500);
+            } catch(e) { console.log("Audio error:", e); }
+        };
+        
+        // التحكم بتشغيل/إيقاف الصوت
+        document.getElementById('playMusicBtn').onclick = () => {
+            if (!isSoundEnabled) {
+                window.enableSoundAndStart();
+                return;
+            }
+            if (audioContext && isSoundEnabled) {
+                if (audioContext.state === 'running') {
+                    audioContext.suspend();
+                    document.getElementById('playMusicBtn').innerHTML = '🔇';
+                    document.querySelector('.music-control .text-white').innerHTML = '🎵 متوقف';
+                    isSoundEnabled = false;
+                } else {
+                    audioContext.resume();
+                    document.getElementById('playMusicBtn').innerHTML = '🔊';
+                    document.querySelector('.music-control .text-white').innerHTML = '🎵 يعمل';
+                    isSoundEnabled = true;
+                    playSuccessSound();
+                }
+            }
+        };
+        
+        // التحكم بمستوى الصوت
+        const volumeSlider = document.getElementById('volumeSlider');
+        volumeSlider.oninput = (e) => {
+            currentVolume = e.target.value / 100;
+            document.querySelector('.volume-control .text-white:last-child').innerHTML = Math.round(currentVolume * 100) + '%';
+            if (isSoundEnabled) playBeep(500, 0.05, 0.05);
+        };
+        
+        // التحكم بالكاميرا
+        document.getElementById('resetCameraBtn').onclick = () => {
+            autoRotateCamera = false;
+            document.getElementById('rotateStatus').innerHTML = 'يدوي';
+            camera.position.set(0, 2, 8);
+            if (isSoundEnabled) playClickSound();
+        };
+        
+        document.getElementById('autoRotateBtn').onclick = () => {
+            autoRotateCamera = !autoRotateCamera;
+            document.getElementById('rotateStatus').innerHTML = autoRotateCamera ? 'تلقائي' : 'يدوي';
+            if (isSoundEnabled) playMagicSound();
+        };
+        
+        // ============== Vue Application ==============
+        const { createApp, ref } = Vue;
+        
+        createApp({
+            setup() {
+                const clickCount = ref(0);
+                const showMessage = ref(false);
+                const messageIcon = ref("");
+                const messageTitle = ref("");
+                const messageText = ref("");
+                
+                const cards = ref([
+                    { icon: "🎵", title: "موسيقى خلفية", description: "أصوات تفاعلية مع تحكم كامل - اضغط زر التمكين أولاً" },
+                    { icon: "🎤", title: "مؤثرات صوتية", description: "أصوات عند النقر والتفاعل - تعمل بعد تمكين الصوت" },
+                    { icon: "📷", title: "كاميرا 360°", description: "تحكم كامل بالكاميرا أو دوران تلقائي" },
+                    { icon: "🤖", title: "نماذج 3D", description: "مجسمات ثلاثية الأبعاد متحركة" },
+                    { icon: "💥", title: "جسيمات متفجرة", description: "تأثيرات بصرية عند النقر" }
+                ]);
+                
+                const stats = ref([
+                    { icon: "⚡", value: "0.5s", label: "وقت التفاعل" },
+                    { icon: "🎵", value: "مع تمكين", label: "الموسيقى" },
+                    { icon: "🎬", value: "360°", label: "كاميرا دوارة" }
+                ]);
+                
+                const createParticles = (x, y, emoji = "✨") => {
+                    for (let i = 0; i < 12; i++) {
+                        const particle = document.createElement('div');
+                        particle.className = 'particle';
+                        particle.textContent = emoji;
+                        const angle = (i / 12) * Math.PI * 2;
+                        const distance = 50 + Math.random() * 50;
+                        const tx = Math.cos(angle) * distance;
+                        const ty = Math.sin(angle) * distance;
+                        particle.style.setProperty('--tx', tx + 'px');
+                        particle.style.setProperty('--ty', ty + 'px');
+                        particle.style.left = (x - 20) + 'px';
+                        particle.style.top = (y - 20) + 'px';
+                        document.body.appendChild(particle);
+                        setTimeout(() => particle.remove(), 800);
+                    }
+                };
+                
+                const handleClick = (card, event) => {
+                    clickCount.value++;
+                    if (isSoundEnabled) playClickSound();
+                    
+                    const rect = event.target.closest('.glass-morphism')?.getBoundingClientRect();
+                    if (rect) {
+                        createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, card.icon);
+                    }
+                    
+                    const element = event.target.closest('.glass-morphism');
+                    if (element) {
+                        element.classList.add('shake-effect');
+                        setTimeout(() => element.classList.remove('shake-effect'), 300);
+                    }
+                    
+                    messageIcon.value = card.icon;
+                    messageTitle.value = `✨ ${card.title} ✨`;
+                    messageText.value = `🔊 الصوت: ${isSoundEnabled ? 'مفعل ✅' : 'غير مفعل ❌ اضغط زر التمكين أولاً'} | تفاعل: ${clickCount.value}`;
+                    showMessage.value = true;
+                    setTimeout(() => { if (showMessage.value) showMessage.value = false; }, 3000);
+                };
+                
+                const showParticlesEffect = (event) => {
+                    clickCount.value++;
+                    if (isSoundEnabled) playSuccessSound();
+                    
+                    const rect = event.target.getBoundingClientRect();
+                    createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, "🎉");
+                    createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, "✨");
+                    createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, "💥");
+                    
+                    messageIcon.value = "💥";
+                    messageTitle.value = "انفجار من الجسيمات!";
+                    messageText.value = `✨ ${clickCount.value} تفاعل حتى الآن | الصوت: ${isSoundEnabled ? 'مفعل' : 'غير مفعل'} ✨`;
+                    showMessage.value = true;
+                    setTimeout(() => { showMessage.value = false; }, 2500);
+                };
+                
+                return { clickCount, showMessage, messageIcon, messageTitle, messageText, cards, stats, handleClick, showParticlesEffect };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
